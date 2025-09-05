@@ -1,6 +1,6 @@
-# Slack Bot with Dify API Integration
+# Slack Bot with Dify API Integration (Socket Mode)
 
-Slack BotとDify APIを連携したAI対話システムです。
+Socket ModeでSlack BotとDify APIを連携したAI対話システムです。ngrokなどの外部公開ツール不要でローカル開発可能。
 
 ## 🚀 クイックスタート
 
@@ -18,17 +18,16 @@ Slack BotとDify APIを連携したAI対話システムです。
 4. 環境変数を設定:
    ```bash
    cp .env.example .env
-   # .envファイルを編集してSlack BotとDify APIの設定を入力
+   # .envファイルを編集してSlack Bot(Socket Mode)とDify APIの設定を入力
    ```
 5. アプリケーションを実行:
    ```bash
    python -m src.main
    ```
 
-## 📖 アプリケーションURL
+## 📖 実行後
 
-実行後、以下にアクセスできます:
-- **Health Check**: http://localhost:8000/health
+Socket Modeでバックグラウンドで動作し、Slackワークスペースでの会話に応答します。
 
 ## 📁 プロジェクト構造
 
@@ -48,28 +47,24 @@ Slack BotとDify APIを連携したAI対話システムです。
 
 ## 🎯 機能
 
+- **Socket Mode**: ngrok不要でローカル開発可能
 - **Slack Bot**: ダイレクトメッセージ、メンション、スラッシュコマンド対応
 - **Dify API連携**: AI応答による自然な対話
 - **会話コンテキスト管理**: ユーザー別の会話履歴を保持
-- **FastAPI**: 軽量なWebフレームワーク
 - **非同期処理**: async/awaitによる効率的な処理
 
-## 📋 APIエンドポイント
+## 📋 Socket Mode
 
-| メソッド | エンドポイント | 説明 |
-|--------|----------|-------------|
-| GET | `/health` | アプリケーションヘルスチェック |
-| POST | `/slack/events` | Slackイベントwebhookエンドポイント |
+Socket Modeを使用しているため、従来のwebhookエンドポイントは不要です。Slack APIとの通信は全てWebSocketを通じて行われます。
 
 ## 🔧 設定
 
 `.env.example`を`.env`にコピーして設定:
 
 ```env
-# Slack Bot設定
+# Slack Bot設定 (Socket Mode)
 SLACK_BOT_TOKEN=xoxb-your-bot-token-here
-SLACK_SIGNING_SECRET=your-signing-secret-here
-SLACK_BOT_USER_ID=your-bot-user-id-here
+SLACK_APP_TOKEN=xapp-your-app-token-here
 
 # Dify API設定
 DIFY_API_KEY=your-dify-api-key-here
@@ -87,7 +82,13 @@ ENVIRONMENT=development
    - 「From scratch」で新しいアプリを作成
    - ワークスペースを選択
 
-2. **Botトークンスコープの設定**
+2. **Socket Modeを有効化**
+   - 「Socket Mode」へ移動
+   - Socket Modeを有効化
+   - App-Level Tokenを生成 (scope: `connections:write`)
+   - 生成されたトークン (xapp-xxx) を`.env`のSLACK_APP_TOKENに設定
+
+3. **Botトークンスコープの設定**
    - 「OAuth & Permissions」へ移動
    - Bot Token Scopesを追加:
      - `chat:write` - メッセージ送信
@@ -95,26 +96,22 @@ ENVIRONMENT=development
      - `im:read` - DM読み取り
      - `im:write` - DM送信
 
-3. **イベント購読を有効化**
+4. **イベント購読を有効化**
    - 「Event Subscriptions」へ移動
-   - Eventsを有効化しRequest URLを設定: `https://your-domain.com/slack/events`
+   - Eventsを有効化 (Request URLの設定は不要)
    - Bot Eventsを購読:
      - `app_mention` - Botがメンションされた時
      - `message.im` - Botへの直接メッセージ
 
-4. **スラッシュコマンドを作成**
+5. **スラッシュコマンドを作成**
    - 「Slash Commands」へ移動
    - コマンドを作成: `/dify`
-   - Request URL: `https://your-domain.com/slack/events`
+   - Request URLは自動で設定されます
 
-5. **アプリをインストール**
+6. **アプリをインストール**
    - 「Install App」へ移動
    - ワークスペースにアプリをインストール
-   - 「Bot User OAuth Token」を`.env`ファイルにコピー
-
-6. **署名シークレットを取得**
-   - 「Basic Information」へ移動
-   - 「Signing Secret」を`.env`ファイルにコピー
+   - 「Bot User OAuth Token」を`.env`のSLACK_BOT_TOKENに設定
 
 ### 🚀 Dify API セットアップ
 
@@ -140,12 +137,14 @@ ENVIRONMENT=development
 ### よくある問題
 
 **Slack Bot応答しない**
-- Slack App設定でwebhook URLが正しく設定されているか確認
-- SLACK_BOT_TOKENとSLACK_SIGNING_SECRETが正しく設定されているか確認
+- Socket Modeが有効になっているか確認
+- SLACK_BOT_TOKENとSLACK_APP_TOKENが正しく設定されているか確認
+- アプリケーションが起動してWebSocket接続が確立されているか確認
 
 **Dify API接続エラー**
 - DIFY_API_KEYとDIFY_BASE_URLが正しく設定されているか確認
 - Difyアプリケーションが有効になっているか確認
 
-**ポートが使用中**
-- ポートを変更: `uvicorn src.main:app --reload --port 8001`
+**接続エラー**
+- インターネット接続を確認
+- ファイアウォールでWebSocket接続が許可されているか確認
