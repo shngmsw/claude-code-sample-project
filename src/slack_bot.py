@@ -1,4 +1,4 @@
-"""Slack Bot implementation for handling events and commands."""
+"""Slack Bot implementation with Dify API integration."""
 
 import json
 import os
@@ -10,17 +10,21 @@ import time
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 import httpx
+from src.models import DifyAPIRequest, DifyAPIResponse
 
 logger = logging.getLogger(__name__)
 
 
 class SlackBot:
-    """Slack Bot for handling events, messages, and slash commands."""
+    """Slack Bot with Dify API integration."""
     
     def __init__(self):
         self.signing_secret = os.getenv("SLACK_SIGNING_SECRET", "")
         self.bot_token = os.getenv("SLACK_BOT_TOKEN", "")
+        self.dify_api_key = os.getenv("DIFY_API_KEY", "")
+        self.dify_base_url = os.getenv("DIFY_BASE_URL", "")
         self.client = httpx.AsyncClient()
+        self.conversations = {}  # Store conversation IDs per user
         
     def _verify_slack_request(self, body: bytes, timestamp: str, signature: str) -> bool:
         """Verify that the request came from Slack."""
@@ -82,88 +86,73 @@ class SlackBot:
             await self._handle_mention(event)
     
     async def _handle_message(self, event: Dict[str, Any]) -> None:
-        """Handle direct messages to the bot."""
-        text = event.get("text", "").lower()
+        """Handle direct messages to the bot via Dify API."""
+        text = event.get("text", "")
         channel = event.get("channel")
         user = event.get("user")
         
-        if "hello" in text or "hi" in text:
-            response = "👋 こんにちは！私はSlack Botサンプルです。以下のコマンドが使えます:\n" \
-                      "• `status` - アプリケーションの状態を確認\n" \
-                      "• `help` - ヘルプを表示\n" \
-                      "• `joke` - ジョークを表示"
-        elif "status" in text:
-            response = "✅ アプリケーションは正常に動作中です！\n🌐 Web UI: http://localhost:8000"
-        elif "help" in text:
-            response = "🤖 Slack Bot コマンド一覧:\n" \
-                      "• `hello/hi` - 挨拶とコマンド一覧\n" \
-                      "• `status` - アプリケーション状態\n" \
-                      "• `joke` - ランダムなジョーク\n" \
-                      "• `/sample` - スラッシュコマンドのサンプル"
-        elif "joke" in text:
-            jokes = [
-                "なぜプログラマーは暗いところを好むのか？\nバグが光を嫌うからです！🐛",
-                "コンピューターと人間の違いは？\nコンピューターは正確にやりたいことをします。",
-                "なぜPythonプログラマーは蛇を飼わないのか？\nインデントが面倒だからです！🐍"
-            ]
-            import random
-            response = random.choice(jokes)
-        else:
-            response = f"メッセージを受信しました: {event.get('text')}\n" \
-                      f"`hello` や `help` と入力してコマンドを確認してください。"
+        if not text.strip():
+            return
+            
+        # Get response from Dify API
+        dify_response = await self._query_dify_api(text, user)
         
-        await self._send_message(channel, response)
+        if dify_response:
+            await self._send_message(channel, dify_response)
+        else:
+            await self._send_message(channel, "申し訳ございません。現在AIサービスが利用できません。")
     
     async def _handle_mention(self, event: Dict[str, Any]) -> None:
-        """Handle when the bot is mentioned in a channel."""
+        """Handle when the bot is mentioned in a channel via Dify API."""
         text = event.get("text", "")
         channel = event.get("channel")
+        user = event.get("user")
         
-        response = f"📢 メンションありがとうございます！\n" \
-                  f"DMで詳細なコマンドを利用できます。\n" \
-                  f"Web UI: http://localhost:8000"
+        # Remove bot mention from text
+        bot_id = f"<@{os.getenv('SLACK_BOT_USER_ID', '')}>"
+        clean_text = text.replace(bot_id, "").strip()
         
-        await self._send_message(channel, response)
+        if not clean_text:
+            clean_text = "こんにちは"
+            
+        # Get response from Dify API
+        dify_response = await self._query_dify_api(clean_text, user)
+        
+        if dify_response:
+            await self._send_message(channel, dify_response)
+        else:
+            await self._send_message(channel, "申し訳ございません。現在AIサービスが利用できません。")
     
     async def _handle_slash_command(self, data: Dict[str, Any]) -> JSONResponse:
-        """Handle slash commands."""
+        """Handle slash commands via Dify API."""
         command = data.get("command")
         text = data.get("text", "")
+        user_id = data.get("user_id")
         user_name = data.get("user_name")
         
-        if command == "/sample":
-            response_text = f"🎉 こんにちは {user_name}さん！\n" \
-                           f"入力されたテキスト: '{text}'\n" \
-                           f"このサンプルSlash Commandは正常に動作しています。\n" \
-                           f"Web UI: http://localhost:8000"
+        if command == "/dify":
+            if not text.strip():
+                return JSONResponse({
+                    "response_type": "ephemeral",
+                    "text": "使用方法: /dify [質問内容]"
+                })
+                
+            # Get response from Dify API
+            dify_response = await self._query_dify_api(text, user_id)
             
-            return JSONResponse({
-                "response_type": "in_channel",  # or "ephemeral" for private response
-                "text": response_text,
-                "attachments": [
-                    {
-                        "color": "good",
-                        "title": "Slack Bot Sample",
-                        "title_link": "http://localhost:8000",
-                        "fields": [
-                            {
-                                "title": "コマンド",
-                                "value": command,
-                                "short": True
-                            },
-                            {
-                                "title": "ユーザー",
-                                "value": user_name,
-                                "short": True
-                            }
-                        ],
-                        "footer": "Slack Bot Sample",
-                        "ts": int(time.time())
-                    }
-                ]
-            })
+            if dify_response:
+                return JSONResponse({
+                    "response_type": "in_channel",
+                    "text": f"**質問:** {text}\n**回答:** {dify_response}"
+                })
+            else:
+                return JSONResponse({
+                    "response_type": "ephemeral",
+                    "text": "申し訳ございません。現在AIサービスが利用できません。"
+                })
         
         return JSONResponse({
+            "response_type": "ephemeral",
             "text": f"未知のコマンド: {command}"
         })
     
@@ -191,6 +180,49 @@ class SlackBot:
                 
         except Exception as e:
             logger.error(f"Error sending Slack message: {e}")
+    
+    async def _query_dify_api(self, query: str, user: str) -> Optional[str]:
+        """Query Dify API and return response."""
+        if not self.dify_api_key or not self.dify_base_url:
+            logger.warning("Dify API credentials not configured")
+            return None
+            
+        try:
+            # Get conversation ID for user
+            conversation_id = self.conversations.get(user)
+            
+            request_data = {
+                "inputs": {},
+                "query": query,
+                "response_mode": "blocking",
+                "conversation_id": conversation_id,
+                "user": user
+            }
+            
+            response = await self.client.post(
+                f"{self.dify_base_url}/chat-messages",
+                headers={
+                    "Authorization": f"Bearer {self.dify_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json=request_data,
+                timeout=30.0
+            )
+            
+            if response.is_success:
+                data = response.json()
+                # Store conversation ID for future requests
+                if "conversation_id" in data:
+                    self.conversations[user] = data["conversation_id"]
+                
+                return data.get("answer", "")
+            else:
+                logger.error(f"Dify API error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error querying Dify API: {e}")
+            return None
     
     async def cleanup(self) -> None:
         """Cleanup resources."""

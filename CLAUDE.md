@@ -1,18 +1,15 @@
-# Claude Code Sample Project
+# Slack Bot with Dify API Integration
 
-This is a sample Python project optimized for development with Claude Code.
+Slack Bot that integrates with Dify API for AI-powered conversations.
 
 ## Project Overview
 
-A FastAPI-based web application with Slack Bot integration that demonstrates:
-- RESTful API endpoints
-- Slack Bot with event handling and slash commands
-- Simple web interface for item management
-- Data validation with Pydantic
-- Async/await patterns
-- Unit testing with pytest
-- Linting and formatting
-- Environment-based configuration
+A minimal FastAPI application with Slack Bot that connects to Dify API:
+- Slack Bot with direct messages and mentions support
+- Dify API integration for AI responses
+- Slash command support (/dify)
+- Conversation context management
+- FastAPI health check endpoint
 
 ## タスク実行の4段階フロー
 
@@ -62,17 +59,13 @@ A FastAPI-based web application with Slack Bot integration that demonstrates:
 - Python 3.11+
 - FastAPI for web framework
 - Pydantic for data validation
-- pytest for testing
-- httpx for HTTP client (Slack API)
+- httpx for HTTP client (Slack API and Dify API)
 - python-dotenv for environment variables
 
 ### Installation Commands
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-
-# Install development dependencies  
-pip install -r requirements-dev.txt
 
 # Install project in editable mode
 pip install -e .
@@ -85,79 +78,42 @@ python -m src.main
 
 # Run with hot reload (development)
 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-
-# Run tests
-pytest
-
-# Run tests with coverage
-pytest --cov=src --cov-report=html
-
-# Lint code
-flake8 src tests
-
-# Format code
-black src tests
-
-# Type checking
-mypy src
 ```
 
 ### Project Structure
 ```
 ├── src/                    # Main application code
 │   ├── __init__.py
-│   ├── main.py            # FastAPI app entry point with web interface
-│   ├── models.py          # Pydantic models including Slack events
-│   ├── slack_bot.py       # Slack Bot implementation
-│   ├── routes/            # API route handlers
+│   ├── main.py            # FastAPI app entry point
+│   ├── models.py          # Pydantic models for Slack events and Dify API
+│   ├── slack_bot.py       # Slack Bot with Dify API integration
 │   └── utils.py           # Utility functions
-├── tests/                 # Test files
-├── .devcontainer/         # VS Code dev container config
 ├── .env.example          # Environment variables template
 ├── requirements.txt       # Runtime dependencies
-├── requirements-dev.txt   # Development dependencies
 ├── pyproject.toml         # Project configuration
-├── CLAUDE.md             # This file - Claude Code instructions
-└── README.md             # Project documentation
+└── CLAUDE.md             # Claude Code instructions
 ```
 
 ## API Endpoints
 
-### Web Interface
-- `GET /` - Simple web application interface
-
 ### Health Check
 - `GET /health` - Health check endpoint
-
-### Items Management
-- `GET /items` - Get all items
-- `POST /items` - Create new item
-- `GET /items/{item_id}` - Get specific item
-- `PUT /items/{item_id}` - Update item
-- `DELETE /items/{item_id}` - Delete item
 
 ### Slack Bot
 - `POST /slack/events` - Slack events webhook endpoint
 
-## Development Guidelines
+## Slack Bot Features
 
-### Code Style
-- Follow PEP 8 style guide
-- Use type hints for all functions
-- Write docstrings for public functions
-- Keep functions focused and small
+### Direct Messages
+- Bot responds to direct messages via Dify API
+- Maintains conversation context per user
 
-### Testing
-- Write unit tests for all new features
-- Aim for >90% test coverage
-- Use descriptive test names
-- Test both happy path and edge cases
+### Channel Mentions
+- Bot responds when mentioned in channels
+- Processes message through Dify API
 
-### Git Workflow
-- Create feature branches from main
-- Write clear commit messages
-- Ensure tests pass before pushing
-- Use pull requests for code review
+### Slash Commands
+- `/dify [質問内容]` - Query Dify API directly
 
 ## Environment Variables
 
@@ -166,12 +122,14 @@ Create a `.env` file in the project root (copy from `.env.example`):
 # Slack Bot Configuration
 SLACK_BOT_TOKEN=xoxb-your-bot-token-here
 SLACK_SIGNING_SECRET=your-signing-secret-here
+SLACK_BOT_USER_ID=your-bot-user-id-here
+
+# Dify API Configuration
+DIFY_API_KEY=your-dify-api-key-here
+DIFY_BASE_URL=https://api.dify.ai/v1
 
 # Application Configuration
-DEBUG=true
 LOG_LEVEL=info
-
-# Environment
 ENVIRONMENT=development
 ```
 
@@ -188,18 +146,13 @@ ENVIRONMENT=development
    - `app_mention` - When the bot is mentioned
    - `message.im` - Direct messages to the bot
 5. Create slash commands:
-   - Command: `/sample`
+   - Command: `/dify`
    - Request URL: `https://your-domain.com/slack/events`
 6. Install the app to your workspace and copy the Bot User OAuth Token
 
-## Troubleshooting
+### Dify API Setup
 
-### Common Issues
-- **Import errors**: Ensure you're in the project root and have installed with `pip install -e .`
-- **Port conflicts**: Change the port in uvicorn command if 8000 is in use
-- **Permission errors**: Check file permissions and ensure you have write access
-
-### Getting Help
-- Check the FastAPI documentation: https://fastapi.tiangolo.com/
-- Review pytest docs: https://docs.pytest.org/
-- Ask Claude Code for help with specific issues
+1. Sign up for a Dify account
+2. Create a new application
+3. Get your API key from the API settings
+4. Copy the API endpoint URL
